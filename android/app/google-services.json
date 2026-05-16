@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "95701884075",
+    "project_id": "educart-257c8",
+    "storage_bucket": "educart-257c8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95701884075:android:33bcbaf831c9b63e842bee",
+        "android_client_info": {
+          "package_name": "com.example.educart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHLe1g6s47Jeyo3Z0JCQE6OXZIHoRFsds"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
