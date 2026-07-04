@@ -76,7 +76,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 20),
 
-                    // ✅ USER NAME FROM FIRESTORE
                     Text(
                       name,
                       style: const TextStyle(
@@ -87,7 +86,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 10),
 
-                    // EMAIL FROM AUTH
                     Text(
                       email,
                       style: const TextStyle(
@@ -98,7 +96,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 10),
 
-                    // UID (optional debug)
                     Text(
                       _auth.currentUser?.uid ?? "",
                       textAlign: TextAlign.center,

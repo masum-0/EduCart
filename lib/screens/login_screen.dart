@@ -14,21 +14,17 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // ✅ ONLY ADD CONTROLLERS (UI NOT TOUCHED)
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ✅ LOGIN FUNCTION (NO NAVIGATION NEEDED)
   Future<void> loginUser() async {
     try {
       await _auth.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-
-      // ❌ DO NOT NAVIGATE — AuthGate handles it
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Login failed: $e")),
@@ -36,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // (Optional future use for forgot password)
   Future<void> resetPassword() async {
     try {
       await _auth.sendPasswordResetEmail(
@@ -60,7 +55,6 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            /// White Container
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
@@ -79,7 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const SizedBox(height: 40),
 
-                      /// Book Icon (UNCHANGED)
                       const Icon(
                         Icons.menu_book_rounded,
                         size: 120,
@@ -98,7 +91,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 40),
 
-                      /// EMAIL (ONLY ADDED CONTROLLER)
                       TextField(
                         controller: emailController,
                         decoration: InputDecoration(
@@ -129,7 +121,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 25),
 
-                      /// PASSWORD (ONLY ADDED CONTROLLER)
                       TextField(
                         controller: passwordController,
                         obscureText: true,
@@ -161,7 +152,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 40),
 
-                      /// CONTINUE BUTTON (ONLY FUNCTION ADDED)
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryBlue,
@@ -170,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             vertical: 16,
                           ),
                         ),
-                        onPressed: loginUser, // ONLY CHANGE
+                        onPressed: loginUser,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
@@ -193,7 +183,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 20),
 
-                      /// FORGOT PASSWORD (ONLY FUNCTION ADDED)
                       TextButton(
                         onPressed: resetPassword,
                         child: const Text(
@@ -241,7 +230,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            /// LOGO (UNCHANGED)
             const Positioned(
               top: 110,
               left: 40,
@@ -255,7 +243,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            /// CLOSE BUTTON (UNCHANGED)
             const Positioned(
               top: 40,
               right: 25,

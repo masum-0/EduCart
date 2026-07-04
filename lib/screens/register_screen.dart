@@ -15,7 +15,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // ✅ ADDED CONTROLLERS (NO UI CHANGE)
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -23,11 +22,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isSubmitting = false;
 
-  // ✅ FUNCTION ONLY (NO UI CHANGE)
   Future<void> registerUser() async {
+    // Basic client-side validation. Firestore/Auth rules are the real
+    // enforcement layer, but catching obvious mistakes early = better UX.
+    if (nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter your name")),
+      );
+      return;
+    }
+    if (passwordController.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password must be at least 6 characters")),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
     try {
-      // 1. Create user
       UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
@@ -36,16 +51,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       String uid = userCredential.user!.uid;
 
-      // 2. Save to Firestore
       await _firestore.collection("users").doc(uid).set({
         "name": nameController.text.trim(),
         "email": emailController.text.trim(),
         "dob": dobController.text.trim(),
         "uid": uid,
+        "role": "user", // Admin role must be set manually in Firestore console
         "createdAt": FieldValue.serverTimestamp(),
       });
 
-      // 3. Go to Home
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -53,9 +67,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -107,7 +125,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 60),
 
-                      /// NAME (ONLY ADDED CONTROLLER)
                       TextField(
                         controller: nameController,
                         decoration: InputDecoration(
@@ -136,7 +153,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 25),
 
-                      /// EMAIL
                       TextField(
                         controller: emailController,
                         decoration: InputDecoration(
@@ -165,7 +181,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 25),
 
-                      /// PASSWORD
                       TextField(
                         controller: passwordController,
                         obscureText: true,
@@ -195,7 +210,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 25),
 
-                      /// DOB (UNCHANGED UI, ONLY ADDED CONTROLLER)
                       GestureDetector(
                         onTap: () async {
                           DateTime? pickedDate = await showDatePicker(
@@ -246,8 +260,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(18),
-                                borderSide:
-                                    const BorderSide(color: primaryBlue, width: 2),
+                                borderSide: const BorderSide(
+                                    color: primaryBlue, width: 2),
                               ),
                             ),
                           ),
@@ -256,7 +270,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 45),
 
-                      /// CONTINUE BUTTON (ONLY FUNCTION ADDED)
                       Center(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -266,25 +279,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               vertical: 16,
                             ),
                           ),
-                          onPressed: registerUser, // ✅ ONLY CHANGE
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Text(
-                                "Continue",
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  color: Colors.white,
+                          onPressed: _isSubmitting ? null : registerUser,
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Text(
+                                      "Continue",
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 18),
+                                    Icon(
+                                      Icons.arrow_forward,
+                                      color: Colors.white,
+                                      size: 34,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              SizedBox(width: 18),
-                              Icon(
-                                Icons.arrow_forward,
-                                color: Colors.white,
-                                size: 34,
-                              ),
-                            ],
-                          ),
                         ),
                       ),
 
@@ -295,7 +317,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
-            /// CLOSE BUTTON (UNCHANGED)
             Positioned(
               top: 40,
               right: 25,

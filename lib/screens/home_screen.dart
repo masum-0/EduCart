@@ -1,52 +1,46 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class HomeScreen extends StatelessWidget {
+import '../models/product.dart';
+import '../services/product_service.dart';
+import '../services/auth_service.dart';
+import 'profile_screen.dart';
+import 'product_detail_screen.dart';
+import 'cart_screen.dart';
+import 'sell_screen.dart';
+import 'order_history_screen.dart';
+import 'admin_dashboard_screen.dart';
+import 'app_theme.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  final List<Map<String, dynamic>> books = const [
-  {
-    "image":
-        "https://covers.openlibrary.org/b/isbn/9780140328721-L.jpg",
-    "price": 350,
-  },
-  {
-    "image":
-        "https://covers.openlibrary.org/b/isbn/9780439064873-L.jpg",
-    "price": 420,
-  },
-  {
-    "image":
-        "https://covers.openlibrary.org/b/isbn/9780261103573-L.jpg",
-    "price": 280,
-  },
-  {
-    "image":
-        "https://covers.openlibrary.org/b/isbn/9780307277671-L.jpg",
-    "price": 500,
-  },
-  {
-    "image":
-        "https://covers.openlibrary.org/b/isbn/9780743273565-L.jpg",
-    "price": 390,
-  },
-  {
-    "image":
-        "https://covers.openlibrary.org/b/isbn/9780061120084-L.jpg",
-    "price": 610,
-  },
-];
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final ProductService _productService = ProductService();
+  final AuthService _authService = AuthService();
+
+  String _selectedCategory = 'All';
+  bool _isAdmin = false;
+
+  final List<String> _tabs = ['All', ...productCategories];
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final isAdmin = await _authService.isCurrentUserAdmin();
+    if (mounted) setState(() => _isAdmin = isAdmin);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<String> tabs = [
-      "Explore",
-      "Explore",
-      "Explore",
-      "Explore",
-      "Explore",
-    ];
-
     return Scaffold(
       backgroundColor: const Color(0xFF2100B8),
       body: SafeArea(
@@ -58,18 +52,36 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Educart",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Educart",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (_isAdmin)
+                        IconButton(
+                          icon: const Icon(Icons.admin_panel_settings,
+                              color: Colors.white),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminDashboardScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  // SEARCH BAR
+                  // SEARCH BAR (kept visual only, filtering by category tabs below)
                   Container(
                     height: 60,
                     decoration: BoxDecoration(
@@ -104,34 +116,39 @@ class HomeScreen extends StatelessWidget {
 
                   const SizedBox(height: 22),
 
-                  // TABS
+                  // CATEGORY TABS (now functional filters)
                   SizedBox(
                     height: 40,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: tabs.length,
+                      itemCount: _tabs.length,
                       itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 28),
-                          child: Column(
-                            children: [
-                              Text(
-                                tabs[index],
-                                style: TextStyle(
-                                  color: index == 0
-                                      ? Colors.white
-                                      : Colors.white70,
-                                  fontSize: 20,
+                        final tab = _tabs[index];
+                        final isSelected = tab == _selectedCategory;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedCategory = tab),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 28),
+                            child: Column(
+                              children: [
+                                Text(
+                                  tab,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.white70,
+                                    fontSize: 20,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              if (index == 0)
-                                Container(
-                                  width: 70,
-                                  height: 2,
-                                  color: Colors.white,
-                                ),
-                            ],
+                                const SizedBox(height: 6),
+                                if (isSelected)
+                                  Container(
+                                    width: 70,
+                                    height: 2,
+                                    color: Colors.white,
+                                  ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -141,91 +158,147 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-            // 📚 GRID
+            // GRID — now backed by Firestore
             Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: books.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 0.68,
+              child: StreamBuilder<List<Product>>(
+                stream: _productService.streamProducts(
+                  category: _selectedCategory,
                 ),
-                itemBuilder: (context, index) {
-                  final book = books[index];
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  }
+                  final products = snapshot.data!;
+                  if (products.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No items yet. Be the first to sell something!',
+                        style: TextStyle(color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
 
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF5F7CFF),
-                      borderRadius: BorderRadius.circular(30),
+                  return GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: products.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                      childAspectRatio: 0.68,
                     ),
-                    child: Column(
-                      children: [
-                        // 📖 BOOK COVER
-                        Expanded(
-                          child: Container(
-                            margin: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              image: DecorationImage(
-                                image: NetworkImage(book["image"]),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
+                    itemBuilder: (context, index) {
+                      final product = products[index];
 
-                        // 💰 PRICE SECTION
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Text(
-                            "৳ ${book["price"]}",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailScreen(product: product),
                             ),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF5F7CFF),
+                            borderRadius: BorderRadius.circular(30),
                           ),
-                        ),
-
-                        // ❤️ + 🛒 BUTTONS (FIXED NO OVERFLOW)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                              left: 12, right: 12, bottom: 12),
-                          child: Row(
+                          child: Column(
                             children: [
-                              Container(
-                                height: 40,
-                                width: 45,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFA8C8FF),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: const Icon(
-                                  Icons.favorite_border,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
+                              // BOOK COVER
                               Expanded(
                                 child: Container(
-                                  height: 40,
+                                  margin: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    color: Colors.white24,
+                                    image: product.imageUrl.isNotEmpty
+                                        ? DecorationImage(
+                                            image:
+                                                NetworkImage(product.imageUrl),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                  ),
+                                  child: product.imageUrl.isEmpty
+                                      ? const Icon(Icons.menu_book,
+                                          color: Colors.white54, size: 40)
+                                      : null,
+                                ),
+                              ),
+
+                              // PRICE SECTION
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Text(
+                                  "৳ ${product.price.toStringAsFixed(0)}",
+                                  style: const TextStyle(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(18),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  child: const Icon(
-                                    Icons.add_shopping_cart_outlined,
-                                    size: 22,
-                                  ),
+                                ),
+                              ),
+
+                              // BUTTONS
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 12, right: 12, bottom: 12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      height: 40,
+                                      width: 45,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFA8C8FF),
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      child: const Icon(
+                                        Icons.favorite_border,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ProductDetailScreen(
+                                                      product: product),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(18),
+                                          ),
+                                          child: const Icon(
+                                            Icons.add_shopping_cart_outlined,
+                                            size: 22,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
               ),
@@ -234,7 +307,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
 
-      // BOTTOM NAV (UNCHANGED)
+      // BOTTOM NAV — now functional
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -246,9 +319,39 @@ class HomeScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            navItem(Icons.home_outlined),
-            navItem(Icons.notifications_none),
-            navItem(Icons.shopping_cart_outlined),
+            GestureDetector(
+              onTap: () {}, // Home — already here
+              child: navItem(Icons.home_outlined),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SellScreen()),
+                );
+              },
+              child: navItem(Icons.add_box_outlined),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CartScreen()),
+                );
+              },
+              child: navItem(Icons.shopping_cart_outlined),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const OrderHistoryScreen(),
+                  ),
+                );
+              },
+              child: navItem(Icons.receipt_long_outlined),
+            ),
             GestureDetector(
               onTap: () {
                 Navigator.push(
