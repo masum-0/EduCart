@@ -1,80 +1,145 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class OrderItem {
-  final String productId;
-  final String title;
-  final double price;
-  final String imageUrl;
-  final int quantity;
+import '../models/order.dart';
+import '../services/order_service.dart';
+import 'app_theme.dart';
 
-  OrderItem({
-    required this.productId,
-    required this.title,
-    required this.price,
-    required this.imageUrl,
-    required this.quantity,
-  });
+class OrderHistoryScreen extends StatelessWidget {
+  const OrderHistoryScreen({super.key});
 
-  factory OrderItem.fromMap(Map<String, dynamic> map) {
-    return OrderItem(
-      productId: map['productId'] ?? '',
-      title: map['title'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      imageUrl: map['imageUrl'] ?? '',
-      quantity: (map['quantity'] ?? 1) as int,
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final orderService = OrderService();
+
+    if (uid == null) {
+      return const Scaffold(
+        body: Center(child: Text('Please log in to view your orders.')),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: primaryBlue,
+      appBar: AppBar(
+        backgroundColor: primaryBlue,
+        elevation: 0,
+        title: const Text('Order History', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          color: lightGrey,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(45),
+            topRight: Radius.circular(45),
+          ),
+        ),
+        margin: const EdgeInsets.only(top: 10),
+        child: StreamBuilder<List<AppOrder>>(
+          stream: orderService.streamMyOrders(uid),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final orders = snapshot.data!;
+            if (orders.isEmpty) {
+              return const Center(child: Text('No orders yet.'));
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              itemBuilder: (context, index) {
+                final order = orders[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Order #${order.id.substring(0, 6)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _statusColor(order.status).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              order.status.toUpperCase(),
+                              style: TextStyle(
+                                color: _statusColor(order.status),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (order.createdAt != null)
+                        Text(
+                          '${order.createdAt!.day}/${order.createdAt!.month}/${order.createdAt!.year}',
+                          style: const TextStyle(color: Colors.black54, fontSize: 12),
+                        ),
+                      const Divider(height: 20),
+                      ...order.items.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text('${item.title} x${item.quantity}'),
+                              ),
+                              Text('৳ ${(item.price * item.quantity).toStringAsFixed(0)}'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            '৳ ${order.total.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, color: primaryBlue),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'productId': productId,
-      'title': title,
-      'price': price,
-      'imageUrl': imageUrl,
-      'quantity': quantity,
-    };
-  }
-}
-
-class AppOrder {
-  final String id;
-  final String buyerId;
-  final List<OrderItem> items;
-  final double total;
-  final String status; // "placed", "completed", "cancelled"
-  final DateTime? createdAt;
-
-  AppOrder({
-    required this.id,
-    required this.buyerId,
-    required this.items,
-    required this.total,
-    required this.status,
-    this.createdAt,
-  });
-
-  factory AppOrder.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-    final rawItems = (data['items'] as List<dynamic>? ?? []);
-    return AppOrder(
-      id: doc.id,
-      buyerId: data['buyerId'] ?? '',
-      items: rawItems
-          .map((e) => OrderItem.fromMap(e as Map<String, dynamic>))
-          .toList(),
-      total: (data['total'] ?? 0).toDouble(),
-      status: data['status'] ?? 'placed',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'buyerId': buyerId,
-      'items': items.map((e) => e.toMap()).toList(),
-      'total': total,
-      'status': status,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
   }
 }
