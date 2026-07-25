@@ -35,9 +35,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String role = "user";
   bool _isLoading = true;
 
+  Stream<List<Product>>? _myListingsStream;
+  Stream<List<AppOrder>>? _myOrdersStream;
+
   @override
   void initState() {
     super.initState();
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      _myListingsStream = _productService.streamMyListings(uid);
+      _myOrdersStream = _orderService.streamMyOrders(uid);
+    }
     loadUserData();
   }
 
@@ -106,17 +114,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             // TOP BAR
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              padding: const EdgeInsets.fromLTRB(6, 6, 20, 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    "Educart",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Text(
+                        "EduCart",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   if (role == 'admin')
                     IconButton(
@@ -237,8 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   Expanded(
                                     child: StreamBuilder<List<Product>>(
-                                      stream:
-                                          _productService.streamMyListings(uid),
+                                      stream: _myListingsStream,
                                       builder: (context, snapshot) {
                                         final count =
                                             snapshot.data?.length ?? 0;
@@ -250,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: StreamBuilder<List<AppOrder>>(
-                                      stream: _orderService.streamMyOrders(uid),
+                                      stream: _myOrdersStream,
                                       builder: (context, snapshot) {
                                         final count =
                                             snapshot.data?.length ?? 0;

@@ -7,10 +7,13 @@ class OrderService {
 
   CollectionReference get _orders => _db.collection('orders');
 
-  /// Places an order from the current cart contents. Does NOT clear the
-  /// cart itself — caller (checkout screen) does that after success so a
-  /// failed order doesn't silently wipe the cart.
-  Future<String> placeOrder(String uid, List<CartItem> cartItems) async {
+  Future<String> placeOrder({
+    required String uid,
+    required List<CartItem> cartItems,
+    required String recipientName,
+    required String phone,
+    required String address,
+  }) async {
     if (cartItems.isEmpty) {
       throw Exception('Cannot place an order with an empty cart.');
     }
@@ -33,18 +36,27 @@ class OrderService {
       items: items,
       total: total,
       status: 'placed',
+      recipientName: recipientName.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
     );
 
     final docRef = await _orders.add(order.toMap());
     return docRef.id;
   }
 
+  // where + client-side sort avoids needing a composite index for this
+  // single-field-filtered query.
   Stream<List<AppOrder>> streamMyOrders(String uid) {
-    return _orders
-        .where('buyerId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => AppOrder.fromFirestore(d)).toList());
+    return _orders.where('buyerId', isEqualTo: uid).snapshots().map((snap) {
+      final orders = snap.docs.map((d) => AppOrder.fromFirestore(d)).toList();
+      orders.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime(0);
+        final bTime = b.createdAt ?? DateTime(0);
+        return bTime.compareTo(aTime);
+      });
+      return orders;
+    });
   }
 
   Future<void> updateOrderStatus(String orderId, String status) async {

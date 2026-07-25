@@ -42,6 +42,9 @@ class AppOrder {
   final List<OrderItem> items;
   final double total;
   final String status; // "placed", "completed", "cancelled"
+  final String recipientName;
+  final String phone;
+  final String address;
   final DateTime? createdAt;
 
   AppOrder({
@@ -50,6 +53,9 @@ class AppOrder {
     required this.items,
     required this.total,
     required this.status,
+    this.recipientName = '',
+    this.phone = '',
+    this.address = '',
     this.createdAt,
   });
 
@@ -64,6 +70,10 @@ class AppOrder {
           .toList(),
       total: (data['total'] ?? 0).toDouble(),
       status: data['status'] ?? 'placed',
+      // ?? '' keeps this safe for any orders placed before these fields existed
+      recipientName: data['recipientName'] ?? '',
+      phone: data['phone'] ?? '',
+      address: data['address'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -74,6 +84,9 @@ class AppOrder {
       'items': items.map((e) => e.toMap()).toList(),
       'total': total,
       'status': status,
+      'recipientName': recipientName,
+      'phone': phone,
+      'address': address,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }

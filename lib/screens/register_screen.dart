@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
+import '../utils/error_helper.dart';
 import 'home_screen.dart';
 
 const Color primaryBlue = Color(0xFF2100C4);
@@ -20,16 +20,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController dobController = TextEditingController();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService = AuthService();
   bool _isSubmitting = false;
 
   Future<void> registerUser() async {
-    // Basic client-side validation. Firestore/Auth rules are the real
-    // enforcement layer, but catching obvious mistakes early = better UX.
     if (nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter your name")),
+      );
+      return;
+    }
+    if (emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter your email")),
       );
       return;
     }
@@ -43,33 +46,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+      await _authService.register(
+        email: emailController.text,
+        password: passwordController.text,
+        name: nameController.text,
+        dob: dobController.text,
       );
 
-      String uid = userCredential.user!.uid;
-
-      await _firestore.collection("users").doc(uid).set({
-        "name": nameController.text.trim(),
-        "email": emailController.text.trim(),
-        "dob": dobController.text.trim(),
-        "uid": uid,
-        "role": "user", // Admin role must be set manually in Firestore console
-        "createdAt": FieldValue.serverTimestamp(),
-      });
-
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
+          SnackBar(content: Text(friendlyErrorMessage(e))),
         );
       }
     } finally {
@@ -81,6 +75,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: primaryBlue,
+      // Prevents the keyboard from resizing/shifting this layout.
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
@@ -115,7 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const Center(
                         child: Text(
-                          "Educart",
+                          "EduCart",
                           style: TextStyle(
                             fontSize: 52,
                             fontWeight: FontWeight.w500,
@@ -155,6 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       TextField(
                         controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.email_outlined),
                           hintText: "Email",
@@ -317,16 +314,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
+            // Back button — replaces the previous non-functional close (X)
             Positioned(
-              top: 40,
-              right: 25,
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: pinkColor,
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 30,
+              top: 10,
+              left: 6,
+              child: SafeArea(
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
             ),

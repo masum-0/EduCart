@@ -17,12 +17,22 @@ class WishlistScreen extends StatefulWidget {
 class _WishlistScreenState extends State<WishlistScreen> {
   final WishlistService _wishlistService = WishlistService();
   final ProductService _productService = ProductService();
+  Stream<List<WishlistItem>>? _wishlistStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _wishlistStream = _wishlistService.streamWishlist(uid);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (uid == null) {
+    if (uid == null || _wishlistStream == null) {
       return const Scaffold(
         body: Center(child: Text('Please log in to view your wishlist.')),
       );
@@ -46,8 +56,14 @@ class _WishlistScreenState extends State<WishlistScreen> {
         ),
         margin: const EdgeInsets.only(top: 10),
         child: StreamBuilder<List<WishlistItem>>(
-          stream: _wishlistService.streamWishlist(uid),
+          stream: _wishlistStream,
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('Could not load your wishlist:\n${snapshot.error}'),
+              );
+            }
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }

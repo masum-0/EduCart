@@ -23,28 +23,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final WishlistService _wishlistService = WishlistService();
   final TextEditingController _reviewController = TextEditingController();
   double _selectedRating = 5;
-  bool _addingToCart = false;
 
-  Future<void> _addToCart() async {
+  // Cached once in initState. This screen calls setState frequently (star
+  // rating taps, review submission, etc.) — if these streams were created
+  // inline inside build() instead, every one of those setState calls would
+  // tear down and restart the wishlist/cart/review listeners, which is what
+  // made the wishlist heart appear unresponsive.
+  Stream<Set<String>>? _wishlistIdsStream;
+  Stream<Set<String>>? _cartIdsStream;
+  late final Stream<List<Review>> _reviewsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewsStream = _reviewService.streamReviews(widget.product.id);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _wishlistIdsStream = _wishlistService.streamWishlistIds(uid);
+      _cartIdsStream = _cartService.streamCartProductIds(uid);
+    }
+  }
+
+  Future<void> _toggleCart() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    setState(() => _addingToCart = true);
     try {
-      await _cartService.addToCart(user.uid, widget.product);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to cart')),
-        );
-      }
+      await _cartService.toggleCartItem(user.uid, widget.product);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add to cart: $e')),
+          SnackBar(content: Text('Could not update cart: $e')),
         );
       }
-    } finally {
-      if (mounted) setState(() => _addingToCart = false);
     }
   }
 
@@ -110,10 +120,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               iconTheme: const IconThemeData(color: Colors.white),
               title: const Text('Details', style: TextStyle(color: Colors.white)),
               actions: [
-                if (FirebaseAuth.instance.currentUser != null)
+                if (_wishlistIdsStream != null)
                   StreamBuilder<Set<String>>(
-                    stream: _wishlistService.streamWishlistIds(
-                        FirebaseAuth.instance.currentUser!.uid),
+                    stream: _wishlistIdsStream,
                     builder: (context, snapshot) {
                       final isWishlisted =
                           snapshot.data?.contains(product.id) ?? false;
@@ -122,10 +131,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           isWishlisted ? Icons.favorite : Icons.favorite_border,
                           color: isWishlisted ? Colors.redAccent : Colors.white,
                         ),
-                        onPressed: () => _wishlistService.toggleWishlist(
-                          FirebaseAuth.instance.currentUser!.uid,
-                          product,
-                        ),
+                        onPressed: () {
+                          final uid = FirebaseAuth.instance.currentUser?.uid;
+                          if (uid != null) {
+                            _wishlistService.toggleWishlist(uid, product);
+                          }
+                        },
                       );
                     },
                   ),
@@ -193,22 +204,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Text(product.description),
                       const SizedBox(height: 24),
 
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryBlue,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          onPressed: _addingToCart ? null : _addToCart,
-                          icon: const Icon(Icons.add_shopping_cart,
-                              color: Colors.white),
-                          label: const Text(
-                            'Add to Cart',
-                            style: TextStyle(fontSize: 16, color: Colors.white),
+                      if (_cartIdsStream != null)
+                        SizedBox(
+                          width: double.infinity,
+                          child: StreamBuilder<Set<String>>(
+                            stream: _cartIdsStream,
+                            builder: (context, snapshot) {
+                              final inCart =
+                                  snapshot.data?.contains(product.id) ?? false;
+                              return ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      inCart ? Colors.red : primaryBlue,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                onPressed: _toggleCart,
+                                icon: Icon(
+                                  inCart
+                                      ? Icons.remove_shopping_cart
+                                      : Icons.add_shopping_cart,
+                                  color: Colors.white,
+                                ),
+                                label: Text(
+                                  inCart ? 'Remove from Cart' : 'Add to Cart',
+                                  style: const TextStyle(fontSize: 16, color: Colors.white),
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      ),
 
                       const SizedBox(height: 30),
                       const Text(
@@ -266,8 +290,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 16),
 
                       StreamBuilder<List<Review>>(
-                        stream: _reviewService.streamReviews(product.id),
+                        stream: _reviewsStream,
                         builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Text('Could not load reviews: ${snapshot.error}');
+                          }
                           if (!snapshot.hasData) {
                             return const Padding(
                               padding: EdgeInsets.symmetric(vertical: 20),

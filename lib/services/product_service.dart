@@ -6,15 +6,27 @@ class ProductService {
 
   CollectionReference get _products => _db.collection('products');
 
-  /// Live stream of all products, most recent first.
+  /// Filtered by category client-side sort avoids needing a composite
+  /// index for category+createdAt — not currently wired to any screen,
+  /// but kept safe in case you filter by category server-side later.
   Stream<List<Product>> streamProducts({String? category}) {
-    Query query = _products.orderBy('createdAt', descending: true);
+    Query query = _products;
     if (category != null && category != 'All') {
       query = query.where('category', isEqualTo: category);
     }
-    return query.snapshots().map(
-          (snap) => snap.docs.map((d) => Product.fromFirestore(d)).toList(),
-        );
+    return query.snapshots().map((snap) {
+      final products = snap.docs.map((d) => Product.fromFirestore(d)).toList();
+      products.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime(0);
+        final bTime = b.createdAt ?? DateTime(0);
+        return bTime.compareTo(aTime);
+      });
+      return products;
+    });
+  }
+
+  Stream<List<Product>> streamAllProducts() {
+    return streamProducts();
   }
 
   Future<Product?> getProduct(String productId) async {
@@ -23,12 +35,18 @@ class ProductService {
     return Product.fromFirestore(doc);
   }
 
+  // where + client-side sort avoids needing a composite index for this
+  // single-field-filtered query.
   Stream<List<Product>> streamMyListings(String uid) {
-    return _products
-        .where('sellerId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => Product.fromFirestore(d)).toList());
+    return _products.where('sellerId', isEqualTo: uid).snapshots().map((snap) {
+      final products = snap.docs.map((d) => Product.fromFirestore(d)).toList();
+      products.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime(0);
+        final bTime = b.createdAt ?? DateTime(0);
+        return bTime.compareTo(aTime);
+      });
+      return products;
+    });
   }
 
   Future<String> createProduct(Product product) async {

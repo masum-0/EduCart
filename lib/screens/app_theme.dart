@@ -10,6 +10,12 @@ const List<String> productCategories = [
   'Notebook',
   'Question Bank',
   'Digital Resource',
+  'Novel',
+  'Biography',
+  'History',
+  'Poetry',
+  'Self-Help',
+  'Comics',
   'Other',
 ];
 

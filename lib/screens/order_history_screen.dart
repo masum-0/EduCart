@@ -5,8 +5,25 @@ import '../models/order.dart';
 import '../services/order_service.dart';
 import 'app_theme.dart';
 
-class OrderHistoryScreen extends StatelessWidget {
+class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
+
+  @override
+  State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+}
+
+class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
+  final OrderService _orderService = OrderService();
+  Stream<List<AppOrder>>? _ordersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _ordersStream = _orderService.streamMyOrders(uid);
+    }
+  }
 
   Color _statusColor(String status) {
     switch (status) {
@@ -22,9 +39,8 @@ class OrderHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    final orderService = OrderService();
 
-    if (uid == null) {
+    if (uid == null || _ordersStream == null) {
       return const Scaffold(
         body: Center(child: Text('Please log in to view your orders.')),
       );
@@ -48,8 +64,14 @@ class OrderHistoryScreen extends StatelessWidget {
         ),
         margin: const EdgeInsets.only(top: 10),
         child: StreamBuilder<List<AppOrder>>(
-          stream: orderService.streamMyOrders(uid),
+          stream: _ordersStream,
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('Could not load your orders:\n${snapshot.error}'),
+              );
+            }
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
@@ -132,6 +154,15 @@ class OrderHistoryScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (order.address.isNotEmpty) ...[
+                        const Divider(height: 20),
+                        const Text('Delivery Details',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 6),
+                        Text(order.recipientName, style: const TextStyle(fontSize: 13)),
+                        Text(order.phone, style: const TextStyle(fontSize: 13)),
+                        Text(order.address, style: const TextStyle(fontSize: 13)),
+                      ],
                     ],
                   ),
                 );

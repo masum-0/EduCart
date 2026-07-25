@@ -21,10 +21,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   final OrderService _orderService = OrderService();
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  late final Stream<List<Product>> _productsStream;
+  late final Stream<QuerySnapshot> _usersStream;
+  late final Stream<List<AppOrder>> _ordersStream;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _productsStream = _productService.streamAllProducts();
+    _usersStream = _db.collection('users').snapshots();
+    _ordersStream = _orderService.streamAllOrders();
   }
 
   @override
@@ -98,8 +105,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Widget _buildListingsTab() {
     return StreamBuilder<List<Product>>(
-      stream: _productService.streamProducts(),
+      stream: _productsStream,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Padding(padding: const EdgeInsets.all(24), child: Text('Error: ${snapshot.error}'));
+        }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -159,8 +169,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Widget _buildUsersTab() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _db.collection('users').snapshots(),
+      stream: _usersStream,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Padding(padding: const EdgeInsets.all(24), child: Text('Error: ${snapshot.error}'));
+        }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -224,8 +237,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Widget _buildOrdersTab() {
     return StreamBuilder<List<AppOrder>>(
-      stream: _orderService.streamAllOrders(),
+      stream: _ordersStream,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Padding(padding: const EdgeInsets.all(24), child: Text('Error: ${snapshot.error}'));
+        }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -254,7 +270,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   Text('Buyer: ${order.buyerId}',
                       style: const TextStyle(fontSize: 12, color: Colors.black54)),
                   const SizedBox(height: 4),
-                  Text('৳ ${order.total.toStringAsFixed(0)} · ${order.status}'),
+                  Text('৳ ${order.total.toStringAsFixed(0)}'),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Text('Status: ', style: TextStyle(fontSize: 13)),
+                      DropdownButton<String>(
+                        value: order.status,
+                        underline: const SizedBox(),
+                        items: const [
+                          DropdownMenuItem(value: 'placed', child: Text('Placed')),
+                          DropdownMenuItem(
+                              value: 'completed', child: Text('Completed')),
+                          DropdownMenuItem(
+                              value: 'cancelled', child: Text('Cancelled')),
+                        ],
+                        onChanged: (newStatus) {
+                          if (newStatus != null && newStatus != order.status) {
+                            _orderService.updateOrderStatus(order.id, newStatus);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ],
               ),
             );

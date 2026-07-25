@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/product.dart';
 import '../services/product_service.dart';
 import '../services/auth_service.dart';
+import '../services/wishlist_service.dart';
+import '../services/cart_service.dart';
 import 'profile_screen.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
@@ -22,21 +24,64 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ProductService _productService = ProductService();
   final AuthService _authService = AuthService();
+  final WishlistService _wishlistService = WishlistService();
+  final CartService _cartService = CartService();
+  final TextEditingController _searchController = TextEditingController();
 
   String _selectedCategory = 'All';
+  String _searchQuery = '';
   bool _isAdmin = false;
 
   final List<String> _tabs = ['All', ...productCategories];
 
+  // Streams are created exactly once here and reused for the lifetime of
+  // this screen. Creating them inline inside build() instead would make
+  // every rebuild (e.g. from setState) tear down and restart the Firestore
+  // listener, which is what caused lists to flash and then go blank.
+  late final Stream<List<Product>> _productsStream;
+  Stream<Set<String>>? _wishlistIdsStream;
+  Stream<Set<String>>? _cartIdsStream;
+
   @override
   void initState() {
     super.initState();
+    _productsStream = _productService.streamAllProducts();
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _wishlistIdsStream = _wishlistService.streamWishlistIds(uid);
+      _cartIdsStream = _cartService.streamCartProductIds(uid);
+    }
+
     _checkAdmin();
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkAdmin() async {
     final isAdmin = await _authService.isCurrentUserAdmin();
     if (mounted) setState(() => _isAdmin = isAdmin);
+  }
+
+  Future<void> _toggleCart(Product product) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await _cartService.toggleCartItem(uid, product);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update cart: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -56,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        "Educart",
+                        "EduCart",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 34,
@@ -81,42 +126,53 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 20),
 
-                  // SEARCH BAR (kept visual only, filtering by category tabs below)
+                  // SEARCH BAR — icon on the right, filters the grid live
                   Container(
-                    height: 60,
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFF6E8CFF),
-                      borderRadius: BorderRadius.circular(35),
+                      borderRadius: BorderRadius.circular(30),
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(width: 18),
-                        const Icon(Icons.search, color: Colors.white, size: 34),
-                        const SizedBox(width: 10),
                         Expanded(
                           child: Container(
                             height: 42,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
+                              borderRadius: BorderRadius.circular(22),
                             ),
-                            child: const TextField(
+                            child: TextField(
+                              controller: _searchController,
+                              textAlignVertical: TextAlignVertical.center,
                               decoration: InputDecoration(
                                 hintText: "Search books...",
                                 border: InputBorder.none,
                                 contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 18),
+                                    const EdgeInsets.symmetric(horizontal: 18),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                        },
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.search, color: Colors.white, size: 30),
+                        const SizedBox(width: 6),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 22),
 
-                  // CATEGORY TABS (now functional filters)
+                  // CATEGORY TABS
                   SizedBox(
                     height: 40,
                     child: ListView.builder(
@@ -137,13 +193,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     color: isSelected
                                         ? Colors.white
                                         : Colors.white70,
-                                    fontSize: 20,
+                                    fontSize: 18,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
                                 if (isSelected)
                                   Container(
-                                    width: 70,
+                                    width: 50,
                                     height: 2,
                                     color: Colors.white,
                                   ),
@@ -158,25 +214,52 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // GRID — now backed by Firestore
+            // GRID — single stable stream, filtered client-side by category + search
             Expanded(
               child: StreamBuilder<List<Product>>(
-                stream: _productService.streamProducts(
-                  category: _selectedCategory,
-                ),
+                stream: _productsStream,
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Could not load listings:\n${snapshot.error}',
+                        style: const TextStyle(color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
                   if (!snapshot.hasData) {
                     return const Center(
                       child: CircularProgressIndicator(color: Colors.white),
                     );
                   }
-                  final products = snapshot.data!;
+
+                  var products = snapshot.data!;
+                  if (_selectedCategory != 'All') {
+                    products = products
+                        .where((p) => p.category == _selectedCategory)
+                        .toList();
+                  }
+                  if (_searchQuery.isNotEmpty) {
+                    products = products
+                        .where((p) =>
+                            p.title.toLowerCase().contains(_searchQuery) ||
+                            p.description.toLowerCase().contains(_searchQuery))
+                        .toList();
+                  }
+
                   if (products.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No items yet. Be the first to sell something!',
-                        style: TextStyle(color: Colors.white70),
-                        textAlign: TextAlign.center,
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Text(
+                          _searchQuery.isNotEmpty
+                              ? 'No items match "${_searchController.text}"'
+                              : 'No items yet. Be the first to sell something!',
+                          style: const TextStyle(color: Colors.white70),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     );
                   }
@@ -246,51 +329,85 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
 
-                              // BUTTONS
+                              // BUTTONS — favorite toggles wishlist, cart icon toggles cart
                               Padding(
                                 padding: const EdgeInsets.only(
                                     left: 12, right: 12, bottom: 12),
                                 child: Row(
                                   children: [
-                                    Container(
-                                      height: 40,
-                                      width: 45,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFA8C8FF),
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      child: const Icon(
-                                        Icons.favorite_border,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ProductDetailScreen(
-                                                      product: product),
+                                    if (_wishlistIdsStream != null)
+                                      StreamBuilder<Set<String>>(
+                                        stream: _wishlistIdsStream,
+                                        builder: (context, wSnapshot) {
+                                          final isWishlisted = wSnapshot.data
+                                                  ?.contains(product.id) ??
+                                              false;
+                                          return GestureDetector(
+                                            onTap: () {
+                                              final uid = FirebaseAuth
+                                                  .instance.currentUser?.uid;
+                                              if (uid != null) {
+                                                _wishlistService
+                                                    .toggleWishlist(uid, product);
+                                              }
+                                            },
+                                            child: Container(
+                                              height: 40,
+                                              width: 45,
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    const Color(0xFFA8C8FF),
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                              ),
+                                              child: Icon(
+                                                isWishlisted
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                size: 20,
+                                                color: isWishlisted
+                                                    ? Colors.redAccent
+                                                    : Colors.black87,
+                                              ),
                                             ),
                                           );
                                         },
-                                        child: Container(
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(18),
-                                          ),
-                                          child: const Icon(
-                                            Icons.add_shopping_cart_outlined,
-                                            size: 22,
-                                          ),
+                                      ),
+                                    const SizedBox(width: 10),
+                                    if (_cartIdsStream != null)
+                                      Expanded(
+                                        child: StreamBuilder<Set<String>>(
+                                          stream: _cartIdsStream,
+                                          builder: (context, cSnapshot) {
+                                            final inCart = cSnapshot.data
+                                                    ?.contains(product.id) ??
+                                                false;
+                                            return GestureDetector(
+                                              onTap: () => _toggleCart(product),
+                                              child: Container(
+                                                height: 40,
+                                                decoration: BoxDecoration(
+                                                  color: inCart
+                                                      ? primaryBlue
+                                                      : Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(18),
+                                                ),
+                                                child: Icon(
+                                                  inCart
+                                                      ? Icons.check
+                                                      : Icons
+                                                          .add_shopping_cart_outlined,
+                                                  size: 22,
+                                                  color: inCart
+                                                      ? Colors.white
+                                                      : Colors.black87,
+                                                ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -307,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      // BOTTOM NAV — now functional
+      // BOTTOM NAV
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.symmetric(horizontal: 20),

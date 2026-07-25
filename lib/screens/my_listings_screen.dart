@@ -16,6 +16,16 @@ class MyListingsScreen extends StatefulWidget {
 
 class _MyListingsScreenState extends State<MyListingsScreen> {
   final ProductService _productService = ProductService();
+  Stream<List<Product>>? _listingsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _listingsStream = _productService.streamMyListings(uid);
+    }
+  }
 
   Future<void> _confirmDelete(String productId, String title) async {
     final confirmed = await showDialog<bool>(
@@ -42,7 +52,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (uid == null) {
+    if (uid == null || _listingsStream == null) {
       return const Scaffold(
         body: Center(child: Text('Please log in to view your listings.')),
       );
@@ -66,8 +76,14 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         ),
         margin: const EdgeInsets.only(top: 10),
         child: StreamBuilder<List<Product>>(
-          stream: _productService.streamMyListings(uid),
+          stream: _listingsStream,
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('Could not load your listings:\n${snapshot.error}'),
+              );
+            }
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }

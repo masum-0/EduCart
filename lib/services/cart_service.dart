@@ -14,6 +14,15 @@ class CartService {
         );
   }
 
+  /// Just the product IDs currently in the cart — used by home_screen and
+  /// product_detail_screen to show a filled/checked cart icon without a
+  /// separate read per tile.
+  Stream<Set<String>> streamCartProductIds(String uid) {
+    return _cartRef(uid)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => d.id).toSet());
+  }
+
   Future<void> addToCart(String uid, Product product) async {
     final ref = _cartRef(uid).doc(product.id);
     final existing = await ref.get();
@@ -22,6 +31,26 @@ class CartService {
       final currentQty =
           (existing.data() as Map<String, dynamic>)['quantity'] ?? 1;
       await ref.update({'quantity': currentQty + 1});
+    } else {
+      final item = CartItem(
+        productId: product.id,
+        title: product.title,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        sellerId: product.sellerId,
+      );
+      await ref.set(item.toMap());
+    }
+  }
+
+  /// Adds the product to the cart if it's not already there, or removes it
+  /// if it is — matches the single-tap cart icon on home_screen and
+  /// product_detail_screen.
+  Future<void> toggleCartItem(String uid, Product product) async {
+    final ref = _cartRef(uid).doc(product.id);
+    final existing = await ref.get();
+    if (existing.exists) {
+      await ref.delete();
     } else {
       final item = CartItem(
         productId: product.id,

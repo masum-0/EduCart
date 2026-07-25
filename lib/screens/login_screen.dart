@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
+import '../utils/error_helper.dart';
 import 'register_screen.dart';
+import 'home_screen.dart';
 
 const Color primaryBlue = Color(0xFF2100C4);
 const Color lightGrey = Color(0xFFF2F2F2);
@@ -17,34 +19,63 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _authService = AuthService();
+  bool _isSubmitting = false;
 
   Future<void> loginUser() async {
-    try {
-      await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-    } catch (e) {
+    if (emailController.text.trim().isEmpty || passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login failed: $e")),
+        const SnackBar(content: Text("Please enter your email and password")),
       );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _authService.login(emailController.text, passwordController.text);
+
+      // Navigate explicitly rather than relying solely on the reactive
+      // AuthGate stream at the app root — on some devices that stream can
+      // lag a moment behind the actual sign-in, which was leaving this
+      // screen looking "frozen" even though sign-in had already succeeded.
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   Future<void> resetPassword() async {
+    if (emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter your email above first, then tap Forgot Password")),
+      );
+      return;
+    }
     try {
-      await _auth.sendPasswordResetEmail(
-        email: emailController.text.trim(),
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password reset email sent")),
-      );
+      await _authService.resetPassword(emailController.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Password reset email sent")),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage(e))),
+        );
+      }
     }
   }
 
@@ -52,13 +83,28 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: primaryBlue,
+      // Prevents the keyboard from resizing/shifting this layout, which was
+      // previously pushing the white card up over the "EduCart" heading.
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
+            const Positioned(
+              top: 40,
+              left: 40,
+              child: Text(
+                "EduCart",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 56,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                height: MediaQuery.of(context).size.height * 0.72,
+                height: MediaQuery.of(context).size.height * 0.68,
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   color: lightGrey,
@@ -75,24 +121,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const Icon(
                         Icons.menu_book_rounded,
-                        size: 120,
+                        size: 100,
                         color: Colors.brown,
                       ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 20),
 
                       const Text(
                         "Login",
                         style: TextStyle(
-                          fontSize: 42,
+                          fontSize: 38,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
 
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 30),
 
                       TextField(
                         controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.email_outlined),
                           hintText: "Email",
@@ -119,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 20),
 
                       TextField(
                         controller: passwordController,
@@ -150,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 30),
 
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
@@ -160,31 +207,40 @@ class _LoginScreenState extends State<LoginScreen> {
                             vertical: 16,
                           ),
                         ),
-                        onPressed: loginUser,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
-                              "Continue",
-                              style: TextStyle(
-                                fontSize: 24,
-                                color: Colors.white,
+                        onPressed: _isSubmitting ? null : loginUser,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Text(
+                                    "Continue",
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 18),
+                                  Icon(
+                                    Icons.arrow_forward,
+                                    color: Colors.white,
+                                    size: 34,
+                                  ),
+                                ],
                               ),
-                            ),
-                            SizedBox(width: 18),
-                            Icon(
-                              Icons.arrow_forward,
-                              color: Colors.white,
-                              size: 34,
-                            ),
-                          ],
-                        ),
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
                       TextButton(
-                        onPressed: resetPassword,
+                        onPressed: _isSubmitting ? null : resetPassword,
                         child: const Text(
                           "Forgot Password?",
                           style: TextStyle(
@@ -226,33 +282,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 30),
                     ],
                   ),
-                ),
-              ),
-            ),
-
-            const Positioned(
-              top: 110,
-              left: 40,
-              child: Text(
-                "Educart",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 62,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-
-            const Positioned(
-              top: 40,
-              right: 25,
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: pinkColor,
-                child: Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 30,
                 ),
               ),
             ),
