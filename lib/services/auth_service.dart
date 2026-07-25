@@ -7,29 +7,46 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  Future<User?> register({
+    required String email,
+    required String password,
+    required String name,
+    required String dob,
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final uid = credential.user!.uid;
+
+    await _db.collection('users').doc(uid).set({
+      'name': name.trim(),
+      'email': email.trim(),
+      'dob': dob.trim(),
+      'uid': uid,
+      'role': 'user',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return credential.user;
+  }
+
   Future<User?> login(String email, String password) async {
     final result = await _auth.signInWithEmailAndPassword(
-      email: email,
+      email: email.trim(),
       password: password,
     );
     return result.user;
   }
 
-  Future<User?> register(String email, String password) async {
-    final result = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return result.user;
+  Future<void> resetPassword(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
   }
 
   Future<void> logout() async {
     await _auth.signOut();
   }
 
-  /// Returns true if the currently signed-in user has an admin role in
-  /// Firestore. Defaults to false (fails closed) if the profile is missing
-  /// or the field isn't set.
   Future<bool> isCurrentUserAdmin() async {
     final user = _auth.currentUser;
     if (user == null) return false;
