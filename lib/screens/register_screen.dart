@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../utils/error_helper.dart';
+import 'app_logo.dart';
 import 'home_screen.dart';
 
 const Color primaryBlue = Color(0xFF2100C4);
@@ -22,6 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final AuthService _authService = AuthService();
   bool _isSubmitting = false;
+  bool _obscurePassword = true;
 
   Future<void> registerUser() async {
     if (nameController.text.trim().isEmpty) {
@@ -71,15 +73,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, color: primaryBlue.withOpacity(0.55)),
+      suffixIcon: suffixIcon,
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.black.withOpacity(0.32), fontSize: 15),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.black.withOpacity(0.06)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: primaryBlue, width: 1.6),
+      ),
+    );
+  }
+
+  Widget _label(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+          color: Colors.black45,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: primaryBlue,
-      // Prevents the keyboard from resizing/shifting this layout.
       resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
+            Positioned(
+              top: -70,
+              left: -60,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+            ),
+
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
@@ -97,116 +150,92 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 35),
+                      const SizedBox(height: 46),
+
+                      Row(
+                        children: [
+                          const AppLogo(size: 34, markColor: primaryBlue, tasselColor: pinkColor),
+                          const SizedBox(width: 10),
+                          const Text(
+                            "EduCart",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: primaryBlue,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 26),
 
                       const Text(
-                        "Sign Up",
+                        "Create your account",
                         style: TextStyle(
-                          fontSize: 60,
+                          fontSize: 30,
                           fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Join classmates buying and selling study materials.",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black.withOpacity(0.5),
                         ),
                       ),
 
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 30),
 
-                      const Center(
-                        child: Text(
-                          "EduCart",
-                          style: TextStyle(
-                            fontSize: 52,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 60),
-
+                      _label("FULL NAME"),
                       TextField(
                         controller: nameController,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.person_outline),
-                          hintText: "Name",
-                          hintStyle: const TextStyle(
-                            color: pinkColor,
-                            fontSize: 20,
-                          ),
-                          filled: true,
-                          fillColor: lightGrey,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 22),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: Colors.black54),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: primaryBlue, width: 2),
-                          ),
+                        decoration: _fieldDecoration(
+                          hint: "Your name",
+                          icon: Icons.person_outline,
                         ),
                       ),
 
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 18),
 
+                      _label("EMAIL"),
                       TextField(
                         controller: emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          hintText: "Email",
-                          hintStyle: const TextStyle(
-                            color: pinkColor,
-                            fontSize: 20,
-                          ),
-                          filled: true,
-                          fillColor: lightGrey,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 22),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: Colors.black54),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: primaryBlue, width: 2),
-                          ),
+                        decoration: _fieldDecoration(
+                          hint: "you@example.com",
+                          icon: Icons.email_outlined,
                         ),
                       ),
 
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 18),
 
+                      _label("PASSWORD"),
                       TextField(
                         controller: passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          hintText: "Password",
-                          hintStyle: const TextStyle(
-                            color: pinkColor,
-                            fontSize: 20,
-                          ),
-                          filled: true,
-                          fillColor: lightGrey,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 22),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: Colors.black54),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: primaryBlue, width: 2),
+                        obscureText: _obscurePassword,
+                        decoration: _fieldDecoration(
+                          hint: "At least 6 characters",
+                          icon: Icons.lock_outline,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.black38,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 18),
 
+                      _label("DATE OF BIRTH"),
                       GestureDetector(
                         onTap: () async {
                           DateTime? pickedDate = await showDatePicker(
@@ -226,54 +255,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: AbsorbPointer(
                           child: TextField(
                             controller: dobController,
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(
-                                Icons.calendar_month_outlined,
-                              ),
-                              hintText: "Date of Birth",
-                              hintStyle: const TextStyle(
-                                color: pinkColor,
-                                fontSize: 20,
-                              ),
-                              suffixIcon: const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: CircleAvatar(
-                                  backgroundColor: pinkColor,
-                                  child: Icon(
-                                    Icons.arrow_forward_ios,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: lightGrey,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 22),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide:
-                                    const BorderSide(color: Colors.black54),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: const BorderSide(
-                                    color: primaryBlue, width: 2),
-                              ),
+                            decoration: _fieldDecoration(
+                              hint: "Select a date",
+                              icon: Icons.calendar_month_outlined,
                             ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 45),
+                      const SizedBox(height: 34),
 
-                      Center(
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryBlue,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 35,
-                              vertical: 16,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                           onPressed: _isSubmitting ? null : registerUser,
@@ -287,21 +287,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 )
                               : Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: const [
                                     Text(
                                       "Continue",
                                       style: TextStyle(
-                                        fontSize: 24,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
                                         color: Colors.white,
                                       ),
                                     ),
-                                    SizedBox(width: 18),
-                                    Icon(
-                                      Icons.arrow_forward,
-                                      color: Colors.white,
-                                      size: 34,
-                                    ),
+                                    SizedBox(width: 10),
+                                    Icon(Icons.arrow_forward, color: Colors.white, size: 20),
                                   ],
                                 ),
                         ),
@@ -314,13 +311,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
-            // Back button — replaces the previous non-functional close (X)
+            // Back button — kept functional exactly as before.
             Positioned(
               top: 10,
               left: 6,
               child: SafeArea(
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 26),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),

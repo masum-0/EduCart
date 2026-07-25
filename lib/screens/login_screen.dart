@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../utils/error_helper.dart';
+import 'app_logo.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final AuthService _authService = AuthService();
   bool _isSubmitting = false;
+  bool _obscurePassword = true;
 
   Future<void> loginUser() async {
     if (emailController.text.trim().isEmpty || passwordController.text.isEmpty) {
@@ -79,32 +81,75 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, color: primaryBlue.withOpacity(0.55)),
+      suffixIcon: suffixIcon,
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.black.withOpacity(0.32), fontSize: 15),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.black.withOpacity(0.06)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: primaryBlue, width: 1.6),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: primaryBlue,
-      // Prevents the keyboard from resizing/shifting this layout, which was
-      // previously pushing the white card up over the "EduCart" heading.
       resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
-            const Positioned(
-              top: 40,
-              left: 40,
-              child: Text(
-                "EduCart",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 56,
-                  fontWeight: FontWeight.w500,
+            // Soft decorative glow behind the header — quiet, not busy.
+            Positioned(
+              top: -70,
+              right: -60,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
                 ),
               ),
             ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(34, 36, 34, 0),
+              child: Row(
+                children: [
+                  const AppLogo(size: 46),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "EduCart",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                height: MediaQuery.of(context).size.height * 0.68,
+                height: MediaQuery.of(context).size.height * 0.72,
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   color: lightGrey,
@@ -116,147 +161,152 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 30),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 40),
 
-                      const Icon(
-                        Icons.menu_book_rounded,
-                        size: 100,
-                        color: Colors.brown,
+                      const Text(
+                        "Welcome back",
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Log in to keep buying and selling.",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black.withOpacity(0.5),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      const Text(
+                        "EMAIL",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          color: Colors.black45,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: _fieldDecoration(
+                          hint: "you@example.com",
+                          icon: Icons.email_outlined,
+                        ),
                       ),
 
                       const SizedBox(height: 20),
 
                       const Text(
-                        "Login",
+                        "PASSWORD",
                         style: TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          color: Colors.black45,
                         ),
                       ),
-
-                      const SizedBox(height: 30),
-
-                      TextField(
-                        controller: emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          hintText: "Email",
-                          hintStyle: const TextStyle(
-                            color: pinkColor,
-                            fontSize: 20,
-                          ),
-                          filled: true,
-                          fillColor: lightGrey,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 22),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: Colors.black54),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(
-                              color: primaryBlue,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
+                      const SizedBox(height: 8),
                       TextField(
                         controller: passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          hintText: "Password",
-                          hintStyle: const TextStyle(
-                            color: pinkColor,
-                            fontSize: 20,
+                        obscureText: _obscurePassword,
+                        decoration: _fieldDecoration(
+                          hint: "Your password",
+                          icon: Icons.lock_outline,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.black38,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
                           ),
-                          filled: true,
-                          fillColor: lightGrey,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 22),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide:
-                                const BorderSide(color: Colors.black54),
+                        ),
+                      ),
+
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(
+                          onPressed: _isSubmitting ? null : resetPassword,
+                          child: const Text(
+                            "Forgot password?",
+                            style: TextStyle(
                               color: primaryBlue,
-                              width: 2,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
                             ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 14),
 
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryBlue,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 35,
-                            vertical: 16,
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryBlue,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
-                        ),
-                        onPressed: _isSubmitting ? null : loginUser,
-                        child: _isSubmitting
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Text(
-                                    "Continue",
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 18),
-                                  Icon(
-                                    Icons.arrow_forward,
+                          onPressed: _isSubmitting ? null : loginUser,
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
                                     color: Colors.white,
-                                    size: 34,
+                                    strokeWidth: 2,
                                   ),
-                                ],
-                              ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      TextButton(
-                        onPressed: _isSubmitting ? null : resetPassword,
-                        child: const Text(
-                          "Forgot Password?",
-                          style: TextStyle(
-                            color: Colors.black,
-                            decoration: TextDecoration.underline,
-                            fontSize: 18,
-                          ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Text(
+                                      "Log in",
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                                  ],
+                                ),
                         ),
                       ),
+
+                      const SizedBox(height: 26),
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            "Don't have account? ",
-                            style: TextStyle(fontSize: 18),
+                          Text(
+                            "Don't have an account? ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black.withOpacity(0.55),
+                            ),
                           ),
                           GestureDetector(
                             onTap: () {
@@ -268,11 +318,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               );
                             },
                             child: const Text(
-                              "Sign Up",
+                              "Sign up",
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: primaryBlue,
                               ),
                             ),
                           ),
