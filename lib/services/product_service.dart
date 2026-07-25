@@ -42,6 +42,23 @@ class ProductService {
     return docRef.id;
   }
 
+  Future<void> updateProduct(String productId, Product product) async {
+    if (product.title.trim().isEmpty) {
+      throw Exception('Title cannot be empty.');
+    }
+    if (product.price <= 0) {
+      throw Exception('Price must be greater than 0.');
+    }
+    await _products.doc(productId).update({
+      'title': product.title,
+      'description': product.description,
+      'price': product.price,
+      'category': product.category,
+      'condition': product.condition,
+      'imageUrl': product.imageUrl,
+    });
+  }
+
   Future<void> deleteProduct(String productId) async {
     await _products.doc(productId).delete();
   }
