@@ -265,155 +265,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
 
                   return GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                     itemCount: products.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: 0.68,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 18,
+                      childAspectRatio: 0.62,
                     ),
                     itemBuilder: (context, index) {
                       final product = products[index];
-
-                      return GestureDetector(
+                      return _ProductCard(
+                        product: product,
+                        wishlistIdsStream: _wishlistIdsStream,
+                        cartIdsStream: _cartIdsStream,
+                        onToggleWishlist: () {
+                          final uid = FirebaseAuth.instance.currentUser?.uid;
+                          if (uid != null) {
+                            _wishlistService.toggleWishlist(uid, product);
+                          }
+                        },
+                        onToggleCart: () => _toggleCart(product),
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  ProductDetailScreen(product: product),
+                              builder: (_) => ProductDetailScreen(product: product),
                             ),
                           );
                         },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF5F7CFF),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Column(
-                            children: [
-                              // BOOK COVER
-                              Expanded(
-                                child: Container(
-                                  margin: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    color: Colors.white24,
-                                    image: product.imageUrl.isNotEmpty
-                                        ? DecorationImage(
-                                            image:
-                                                NetworkImage(product.imageUrl),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
-                                  ),
-                                  child: product.imageUrl.isEmpty
-                                      ? const Icon(Icons.menu_book,
-                                          color: Colors.white54, size: 40)
-                                      : null,
-                                ),
-                              ),
-
-                              // PRICE SECTION
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: Text(
-                                  "৳ ${product.price.toStringAsFixed(0)}",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-
-                              // BUTTONS — favorite toggles wishlist, cart icon toggles cart
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 12, right: 12, bottom: 12),
-                                child: Row(
-                                  children: [
-                                    if (_wishlistIdsStream != null)
-                                      StreamBuilder<Set<String>>(
-                                        stream: _wishlistIdsStream,
-                                        builder: (context, wSnapshot) {
-                                          final isWishlisted = wSnapshot.data
-                                                  ?.contains(product.id) ??
-                                              false;
-                                          return GestureDetector(
-                                            onTap: () {
-                                              final uid = FirebaseAuth
-                                                  .instance.currentUser?.uid;
-                                              if (uid != null) {
-                                                _wishlistService
-                                                    .toggleWishlist(uid, product);
-                                              }
-                                            },
-                                            child: Container(
-                                              height: 40,
-                                              width: 45,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    const Color(0xFFA8C8FF),
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                              ),
-                                              child: Icon(
-                                                isWishlisted
-                                                    ? Icons.favorite
-                                                    : Icons.favorite_border,
-                                                size: 20,
-                                                color: isWishlisted
-                                                    ? Colors.redAccent
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    const SizedBox(width: 10),
-                                    if (_cartIdsStream != null)
-                                      Expanded(
-                                        child: StreamBuilder<Set<String>>(
-                                          stream: _cartIdsStream,
-                                          builder: (context, cSnapshot) {
-                                            final inCart = cSnapshot.data
-                                                    ?.contains(product.id) ??
-                                                false;
-                                            return GestureDetector(
-                                              onTap: () => _toggleCart(product),
-                                              child: Container(
-                                                height: 40,
-                                                decoration: BoxDecoration(
-                                                  color: inCart
-                                                      ? primaryBlue
-                                                      : Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(18),
-                                                ),
-                                                child: Icon(
-                                                  inCart
-                                                      ? Icons.check
-                                                      : Icons
-                                                          .add_shopping_cart_outlined,
-                                                  size: 22,
-                                                  color: inCart
-                                                      ? Colors.white
-                                                      : Colors.black87,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       );
                     },
                   );
@@ -495,6 +376,231 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: BoxShape.circle,
       ),
       child: Icon(icon, color: Colors.white, size: 30),
+    );
+  }
+}
+
+/// A single listing tile in the home grid. Pulled out of the inline
+/// itemBuilder purely for readability — behavior (streams passed in,
+/// callbacks fired) is identical to before, just presented with a title,
+/// a condition badge, and a rating line so the card reads as more than
+/// "picture + price".
+class _ProductCard extends StatelessWidget {
+  final Product product;
+  final Stream<Set<String>>? wishlistIdsStream;
+  final Stream<Set<String>>? cartIdsStream;
+  final VoidCallback onToggleWishlist;
+  final VoidCallback onToggleCart;
+  final VoidCallback onTap;
+
+  const _ProductCard({
+    required this.product,
+    required this.wishlistIdsStream,
+    required this.cartIdsStream,
+    required this.onToggleWishlist,
+    required this.onToggleCart,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF5F7CFF),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // COVER IMAGE + overlaid badges
+            Expanded(
+              flex: 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.white24,
+                      image: product.imageUrl.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(product.imageUrl),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: product.imageUrl.isEmpty
+                        ? const Icon(Icons.menu_book,
+                            color: Colors.white54, size: 40)
+                        : null,
+                  ),
+
+                  // condition pill, top-left
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        product.condition,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: primaryBlue,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // wishlist heart, top-right
+                  if (wishlistIdsStream != null)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: StreamBuilder<Set<String>>(
+                        stream: wishlistIdsStream,
+                        builder: (context, wSnapshot) {
+                          final isWishlisted =
+                              wSnapshot.data?.contains(product.id) ?? false;
+                          return GestureDetector(
+                            onTap: onToggleWishlist,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isWishlisted
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 16,
+                                color: isWishlisted
+                                    ? Colors.redAccent
+                                    : Colors.black87,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // TITLE + RATING + CATEGORY
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (product.ratingCount > 0) ...[
+                        const Icon(Icons.star, size: 12, color: Colors.amber),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${product.avgRating.toStringAsFixed(1)} (${product.ratingCount})',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 11),
+                        ),
+                      ] else
+                        const Text(
+                          'No ratings yet',
+                          style: TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                      const Spacer(),
+                      Flexible(
+                        child: Text(
+                          product.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                              color: Colors.white60, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // PRICE + CART BUTTON
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "৳ ${product.price.toStringAsFixed(0)}",
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (cartIdsStream != null)
+                    StreamBuilder<Set<String>>(
+                      stream: cartIdsStream,
+                      builder: (context, cSnapshot) {
+                        final inCart =
+                            cSnapshot.data?.contains(product.id) ?? false;
+                        return GestureDetector(
+                          onTap: onToggleCart,
+                          child: Container(
+                            height: 34,
+                            width: 34,
+                            decoration: BoxDecoration(
+                              color: inCart ? pinkColor : Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              inCart
+                                  ? Icons.check
+                                  : Icons.add_shopping_cart_outlined,
+                              size: 17,
+                              color: inCart ? Colors.white : primaryBlue,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
