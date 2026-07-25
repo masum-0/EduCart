@@ -5,6 +5,7 @@ import '../models/product.dart';
 import '../services/product_service.dart';
 import 'app_theme.dart';
 import 'product_detail_screen.dart';
+import 'edit_listing_screen.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -139,6 +140,17 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                               ),
                           ],
                         ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, color: primaryBlue),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditListingScreen(product: p),
+                            ),
+                          );
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
