@@ -47,6 +47,10 @@ class OrderService {
         .map((snap) => snap.docs.map((d) => AppOrder.fromFirestore(d)).toList());
   }
 
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    await _orders.doc(orderId).update({'status': status});
+  }
+
   Stream<List<AppOrder>> streamAllOrders() {
     return _orders
         .orderBy('createdAt', descending: true)
