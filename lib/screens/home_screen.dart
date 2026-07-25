@@ -432,17 +432,18 @@ class _ProductCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
                       color: Colors.white24,
-                      image: product.imageUrl.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(product.imageUrl),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
                     ),
-                    child: product.imageUrl.isEmpty
-                        ? const Icon(Icons.menu_book,
-                            color: Colors.white54, size: 40)
-                        : null,
+                    clipBehavior: Clip.antiAlias,
+                    child: product.imageUrl.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.menu_book,
+                                    color: Colors.white54, size: 40),
+                          )
+                        : const Icon(Icons.menu_book,
+                            color: Colors.white54, size: 40),
                   ),
 
                   // condition pill, top-left
