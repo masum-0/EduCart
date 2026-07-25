@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/product.dart';
 import '../services/cart_service.dart';
 import '../services/review_service.dart';
+import '../services/wishlist_service.dart';
 import 'app_theme.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final CartService _cartService = CartService();
   final ReviewService _reviewService = ReviewService();
+  final WishlistService _wishlistService = WishlistService();
   final TextEditingController _reviewController = TextEditingController();
   double _selectedRating = 5;
   bool _addingToCart = false;
@@ -107,6 +109,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
               title: const Text('Details', style: TextStyle(color: Colors.white)),
+              actions: [
+                if (FirebaseAuth.instance.currentUser != null)
+                  StreamBuilder<Set<String>>(
+                    stream: _wishlistService.streamWishlistIds(
+                        FirebaseAuth.instance.currentUser!.uid),
+                    builder: (context, snapshot) {
+                      final isWishlisted =
+                          snapshot.data?.contains(product.id) ?? false;
+                      return IconButton(
+                        icon: Icon(
+                          isWishlisted ? Icons.favorite : Icons.favorite_border,
+                          color: isWishlisted ? Colors.redAccent : Colors.white,
+                        ),
+                        onPressed: () => _wishlistService.toggleWishlist(
+                          FirebaseAuth.instance.currentUser!.uid,
+                          product,
+                        ),
+                      );
+                    },
+                  ),
+              ],
             ),
             Expanded(
               child: Container(
