@@ -11,6 +11,8 @@ import 'edit_profile_screen.dart';
 import 'my_listings_screen.dart';
 import 'order_history_screen.dart';
 import 'cart_screen.dart';
+import 'wishlist_screen.dart';
+import 'settings_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'login_screen.dart' hide primaryBlue, lightGrey, pinkColor;
 
@@ -303,6 +305,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             _menuTile(
+                              icon: Icons.favorite_border,
+                              label: 'My Wishlist',
+                              subtitle: 'Items you\'ve saved for later',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const WishlistScreen(),
+                                ),
+                              ),
+                            ),
+                            _menuTile(
                               icon: Icons.person_outline,
                               label: 'Edit Profile',
                               subtitle: 'Update your name and details',
@@ -334,6 +347,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
 
                             const SizedBox(height: 20),
+
+                            _menuTile(
+                              icon: Icons.settings_outlined,
+                              label: 'Settings',
+                              subtitle: 'About & account info',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SettingsScreen(),
+                                ),
+                              ),
+                            ),
 
                             _menuTile(
                               icon: Icons.logout,
