@@ -254,29 +254,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   Text('Buyer: ${order.buyerId}',
                       style: const TextStyle(fontSize: 12, color: Colors.black54)),
                   const SizedBox(height: 4),
-                  Text('৳ ${order.total.toStringAsFixed(0)}'),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Text('Status: ', style: TextStyle(fontSize: 13)),
-                      DropdownButton<String>(
-                        value: order.status,
-                        underline: const SizedBox(),
-                        items: const [
-                          DropdownMenuItem(value: 'placed', child: Text('Placed')),
-                          DropdownMenuItem(
-                              value: 'completed', child: Text('Completed')),
-                          DropdownMenuItem(
-                              value: 'cancelled', child: Text('Cancelled')),
-                        ],
-                        onChanged: (newStatus) {
-                          if (newStatus != null && newStatus != order.status) {
-                            _orderService.updateOrderStatus(order.id, newStatus);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
+                  Text('৳ ${order.total.toStringAsFixed(0)} · ${order.status}'),
                 ],
               ),
             );

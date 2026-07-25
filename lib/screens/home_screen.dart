@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 
 import '../models/product.dart';
 import '../services/product_service.dart';
 import '../services/auth_service.dart';
-import '../services/wishlist_service.dart';
-import '../services/cart_service.dart';
 import 'profile_screen.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
@@ -24,12 +22,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ProductService _productService = ProductService();
   final AuthService _authService = AuthService();
-  final WishlistService _wishlistService = WishlistService();
-  final CartService _cartService = CartService();
-  final TextEditingController _searchController = TextEditingController();
 
   String _selectedCategory = 'All';
-  String _searchQuery = '';
   bool _isAdmin = false;
 
   final List<String> _tabs = ['All', ...productCategories];
@@ -38,15 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkAdmin();
-    _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _checkAdmin() async {
@@ -54,32 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _isAdmin = isAdmin);
   }
 
-  Future<void> _quickAddToCart(Product product) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    try {
-      await _cartService.addToCart(uid, product);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added "${product.title}" to cart'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add to cart: $e')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
     return Scaffold(
       backgroundColor: const Color(0xFF2100B8),
       body: SafeArea(
@@ -120,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 20),
 
-                  // SEARCH BAR — now filters the grid live
+                  // SEARCH BAR (kept visual only, filtering by category tabs below)
                   Container(
                     height: 60,
                     decoration: BoxDecoration(
@@ -139,33 +100,23 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(25),
                             ),
-                            child: TextField(
-                              controller: _searchController,
+                            child: const TextField(
                               decoration: InputDecoration(
                                 hintText: "Search books...",
                                 border: InputBorder.none,
                                 contentPadding:
-                                    const EdgeInsets.symmetric(horizontal: 18),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                        },
-                                      )
-                                    : null,
+                                    EdgeInsets.symmetric(horizontal: 18),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 22),
 
-                  // CATEGORY TABS
+                  // CATEGORY TABS (now functional filters)
                   SizedBox(
                     height: 40,
                     child: ListView.builder(
@@ -207,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // GRID — backed by Firestore, filtered by category + search
+            // GRID — now backed by Firestore
             Expanded(
               child: StreamBuilder<List<Product>>(
                 stream: _productService.streamProducts(
@@ -219,23 +170,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: CircularProgressIndicator(color: Colors.white),
                     );
                   }
-
-                  var products = snapshot.data!;
-                  if (_searchQuery.isNotEmpty) {
-                    products = products
-                        .where((p) =>
-                            p.title.toLowerCase().contains(_searchQuery) ||
-                            p.description.toLowerCase().contains(_searchQuery))
-                        .toList();
-                  }
-
+                  final products = snapshot.data!;
                   if (products.isEmpty) {
-                    return Center(
+                    return const Center(
                       child: Text(
-                        _searchQuery.isNotEmpty
-                            ? 'No items match "${_searchController.text}"'
-                            : 'No items yet. Be the first to sell something!',
-                        style: const TextStyle(color: Colors.white70),
+                        'No items yet. Be the first to sell something!',
+                        style: TextStyle(color: Colors.white70),
                         textAlign: TextAlign.center,
                       ),
                     );
@@ -306,49 +246,37 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
 
-                              // BUTTONS — favorite toggles wishlist, cart quick-adds
+                              // BUTTONS
                               Padding(
                                 padding: const EdgeInsets.only(
                                     left: 12, right: 12, bottom: 12),
                                 child: Row(
                                   children: [
-                                    if (uid != null)
-                                      StreamBuilder<Set<String>>(
-                                        stream: _wishlistService
-                                            .streamWishlistIds(uid),
-                                        builder: (context, snapshot) {
-                                          final isWishlisted = snapshot.data
-                                                  ?.contains(product.id) ??
-                                              false;
-                                          return GestureDetector(
-                                            onTap: () => _wishlistService
-                                                .toggleWishlist(uid, product),
-                                            child: Container(
-                                              height: 40,
-                                              width: 45,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    const Color(0xFFA8C8FF),
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                              ),
-                                              child: Icon(
-                                                isWishlisted
-                                                    ? Icons.favorite
-                                                    : Icons.favorite_border,
-                                                size: 20,
-                                                color: isWishlisted
-                                                    ? Colors.redAccent
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                    Container(
+                                      height: 40,
+                                      width: 45,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFA8C8FF),
+                                        borderRadius: BorderRadius.circular(18),
                                       ),
+                                      child: const Icon(
+                                        Icons.favorite_border,
+                                        size: 20,
+                                      ),
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: GestureDetector(
-                                        onTap: () => _quickAddToCart(product),
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ProductDetailScreen(
+                                                      product: product),
+                                            ),
+                                          );
+                                        },
                                         child: Container(
                                           height: 40,
                                           decoration: BoxDecoration(
@@ -379,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      // BOTTOM NAV
+      // BOTTOM NAV — now functional
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.symmetric(horizontal: 20),
